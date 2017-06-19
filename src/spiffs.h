@@ -494,6 +494,26 @@ s32_t SPIFFS_remove(spiffs *fs, const char *path);
 s32_t SPIFFS_fremove(spiffs *fs, spiffs_file fh);
 
 /**
+ * Truncates a file by path.
+ * Note truncate can only make the file smaller, unlike posix truncate which can also extend a file.
+ *
+ * @param fs            the file system struct
+ * @param path          the path of the file to truncate
+ * @param new_size      desired file size
+ */
+s32_t SPIFFS_truncate(spiffs *fs, const char *path, int new_size);
+
+/**
+ * Truncates a file by filehandle.
+ * Note truncate can only make the file smaller, unlike posix truncate which can also extend a file.
+ *
+ * @param fs            the file system struct
+ * @param fh            the filehandle of the file to truncate
+ * @param new_size      desired file size
+ */
+s32_t SPIFFS_ftruncate(spiffs *fs, spiffs_file fh, int new_size);
+
+/**
  * Gets file status by path
  * @param fs            the file system struct
  * @param path          the path of the file to stat

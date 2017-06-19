@@ -833,6 +833,47 @@ TEST(remove_single_by_fd)
 TEST_END
 
 
+TEST(truncate_by_path)
+{
+  int res;
+  spiffs_stat stat;
+  res = test_create_and_write_file("truncate", 10, 10);
+  TEST_CHECK(res >= 0);
+  res = SPIFFS_truncate(FS, "truncate", 5);
+  TEST_CHECK(res == SPIFFS_OK);
+  res = SPIFFS_stat(FS, "truncate", &stat);
+  TEST_CHECK(stat.size == 5);
+  res = SPIFFS_truncate(FS, "truncate", 15);
+  TEST_CHECK(res < 0);
+  TEST_CHECK(SPIFFS_errno(FS) == SPIFFS_ERR_END_OF_OBJECT);
+
+  return TEST_RES_OK;
+}
+TEST_END
+
+
+TEST(truncate_by_fd)
+{
+  int res;
+  spiffs_file fd;
+  spiffs_stat stat;
+  res = test_create_and_write_file("ftruncate", 10, 10);
+  TEST_CHECK(res >= 0);
+  fd = SPIFFS_open(FS, "ftruncate", SPIFFS_RDWR, 0);
+  TEST_CHECK(fd >= 0);
+  res = SPIFFS_ftruncate(FS, fd, 5);
+  TEST_CHECK(res == SPIFFS_OK);
+  res = SPIFFS_fstat(FS, fd, &stat);
+  TEST_CHECK(stat.size == 5);
+  res = SPIFFS_ftruncate(FS, fd, 15);
+  TEST_CHECK(res < 0);
+  TEST_CHECK(SPIFFS_errno(FS) == SPIFFS_ERR_END_OF_OBJECT);
+
+  return TEST_RES_OK;
+}
+TEST_END
+
+
 TEST(write_cache)
 {
   int res;
@@ -2436,6 +2477,8 @@ SUITE_TESTS(hydrogen_tests)
 #endif
   ADD_TEST(remove_single_by_path)
   ADD_TEST(remove_single_by_fd)
+  ADD_TEST(truncate_by_path)
+  ADD_TEST(truncate_by_fd)
   ADD_TEST(write_cache)
   ADD_TEST(write_big_file_chunks_page)
   ADD_TEST(write_big_files_chunks_page)

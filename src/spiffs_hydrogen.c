@@ -620,7 +620,7 @@ s32_t SPIFFS_lseek(spiffs *fs, spiffs_file fh, s32_t offs, int whence) {
   return offs;
 }
 
-s32_t SPIFFS_remove(spiffs *fs, const char *path) {
+static s32_t spiffs_hydro_truncate(spiffs *fs, const char *path, u32_t new_size, u8_t remove_full) {
 #if SPIFFS_READ_ONLY
   (void)fs; (void)path;
   return SPIFFS_ERR_RO_NOT_IMPL;
@@ -651,18 +651,39 @@ s32_t SPIFFS_remove(spiffs *fs, const char *path) {
   }
   SPIFFS_API_CHECK_RES_UNLOCK(fs, res);
 
-  res = spiffs_object_truncate(fd, 0, 1);
+  if (new_size) {
+    u32_t fileSize = fd->size == SPIFFS_UNDEFINED_LEN ? 0 : fd->size;
+    if (new_size > fileSize) {
+       res = SPIFFS_ERR_END_OF_OBJECT;
+       spiffs_fd_return(fs, fd->file_nbr);
+    }
+    SPIFFS_API_CHECK_RES_UNLOCK(fs, res);
+  }
+
+  res = spiffs_object_truncate(fd, new_size, remove_full);
   if (res != SPIFFS_OK) {
     spiffs_fd_return(fs, fd->file_nbr);
   }
   SPIFFS_API_CHECK_RES_UNLOCK(fs, res);
+
+  if (!remove_full) {
+    spiffs_fd_return(fs, fd->file_nbr);
+  }
 
   SPIFFS_UNLOCK(fs);
   return 0;
 #endif // SPIFFS_READ_ONLY
 }
 
-s32_t SPIFFS_fremove(spiffs *fs, spiffs_file fh) {
+s32_t SPIFFS_remove(spiffs *fs, const char *path) {
+   return spiffs_hydro_truncate(fs, path, 0, 1);
+}
+
+s32_t SPIFFS_truncate(spiffs *fs, const char *path, int new_size) {
+   return spiffs_hydro_truncate(fs, path, new_size, 0);
+}
+
+static s32_t spiffs_hydro_ftruncate(spiffs *fs, spiffs_file fh, u32_t new_size, u8_t remove_full) {
 #if SPIFFS_READ_ONLY
   (void)fs; (void)fh;
   return SPIFFS_ERR_RO_NOT_IMPL;
@@ -686,7 +707,15 @@ s32_t SPIFFS_fremove(spiffs *fs, spiffs_file fh) {
   spiffs_cache_fd_release(fs, fd->cache_page);
 #endif
 
-  res = spiffs_object_truncate(fd, 0, 1);
+  if (new_size) {
+    u32_t fileSize = fd->size == SPIFFS_UNDEFINED_LEN ? 0 : fd->size;
+    if (new_size > fileSize) {
+       res = SPIFFS_ERR_END_OF_OBJECT;
+    }
+    SPIFFS_API_CHECK_RES_UNLOCK(fs, res);
+  }
+
+  res = spiffs_object_truncate(fd, new_size, remove_full);
 
   SPIFFS_API_CHECK_RES_UNLOCK(fs, res);
 
@@ -694,6 +723,14 @@ s32_t SPIFFS_fremove(spiffs *fs, spiffs_file fh) {
 
   return 0;
 #endif // SPIFFS_READ_ONLY
+}
+
+s32_t SPIFFS_fremove(spiffs *fs, spiffs_file fh) {
+   return spiffs_hydro_ftruncate(fs, fh, 0, 1);
+}
+
+s32_t SPIFFS_ftruncate(spiffs *fs, spiffs_file fh, int new_size) {
+   return spiffs_hydro_ftruncate(fs, fh, new_size, 0);
 }
 
 static s32_t spiffs_stat_pix(spiffs *fs, spiffs_page_ix pix, spiffs_file fh, spiffs_stat *s) {
